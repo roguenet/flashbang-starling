@@ -32,7 +32,8 @@ public class SoundResource extends Resource
     }
 
     override protected function unload () :void {
-        _sound.close();
+        // only call close() if the Sound is currently streaming.
+        if (_sound.bytesTotal != _sound.bytesLoaded) _sound.close();
         _sound = null;
     }
 
