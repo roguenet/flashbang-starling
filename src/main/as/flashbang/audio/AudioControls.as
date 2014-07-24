@@ -3,6 +3,8 @@
 
 package flashbang.audio {
 
+import aspire.util.MathUtil;
+
 public class AudioControls
 {
     public function AudioControls (parentControls :AudioControls = null) {
@@ -12,30 +14,56 @@ public class AudioControls
         }
     }
 
-    public function retain () :void {
-        ++_refCount;
+    public function get curVolume () :Number {
+        return _localState.volume;
     }
 
+    public function get curPan () :Number {
+        return _localState.pan;
+    }
+
+    public function get isPaused () :Boolean {
+        return _localState.paused;
+    }
+
+    public function get isMuted () :Boolean {
+        return _localState.muted;
+    }
+
+    public function get isStopped () :Boolean {
+        return _localState.stopped;
+    }
+
+    /**
+     * Increments the refcount on this instance. Controls that have their refcounts reduced to 0
+     * will be cleaned up (i.e. no longer updated) by the AudioManager. If you manually create
+     * an AudioControls instance, you should retain it immediately after creation and release it
+     * when it will no longer be used.
+     */
+    public function retain () :AudioControls {
+        ++_refCount;
+        return this;
+    }
+
+    /** Decrements the refcount on this instance */
     public function release () :void {
         if (--_refCount < 0) {
             throw new Error("Cannot release() below a refCount of 0");
         }
     }
 
-    public function volume (val :Number) :AudioControls {
-        _localState.volume = Math.max(val, 0);
-        _localState.volume = Math.min(_localState.volume, 1);
+    public function volume (volume :Number) :AudioControls {
+        _localState.volume = MathUtil.clamp(volume, 0, 1);
         return this;
     }
 
-    public function volumeTo (targetVal :Number, time :Number) :AudioControls {
+    public function volumeTo (targetVolume :Number, time :Number) :AudioControls {
         if (time <= 0) {
-            volume(targetVal);
+            volume(targetVolume);
             _targetVolumeTotalTime = 0;
         } else {
             _initialVolume = _localState.volume;
-            var targetVolume :Number = Math.max(targetVal, 0);
-            targetVolume = Math.min(targetVolume, 1);
+            targetVolume = MathUtil.clamp(targetVolume, 0, 1);
             _targetVolumeDelta = targetVolume - _initialVolume;
             _targetVolumeElapsedTime = 0;
             _targetVolumeTotalTime = time;
@@ -56,20 +84,18 @@ public class AudioControls
         return fadeOut(time).stopAfter(time);
     }
 
-    public function pan (val :Number) :AudioControls {
-        _localState.pan = Math.max(val, -1);
-        _localState.pan = Math.min(_localState.pan, 1);
+    public function pan (pan :Number) :AudioControls {
+        _localState.pan = MathUtil.clamp(pan, -1, 1);
         return this;
     }
 
-    public function panTo (targetVal :Number, time :Number) :AudioControls {
+    public function panTo (targetPan :Number, time :Number) :AudioControls {
         if (time <= 0) {
-            pan(targetVal);
+            pan(targetPan);
             _targetPanTotalTime = 0;
         } else {
             _initialPan = _localState.pan;
-            var targetPan :Number = Math.max(targetVal, -1);
-            targetPan = Math.min(targetPan, 1);
+            targetPan = MathUtil.clamp(targetPan, -1, 1);
             _targetPanDelta = targetPan - _initialPan;
             _targetPanElapsedTime = 0;
             _targetPanTotalTime = time;
@@ -78,88 +104,107 @@ public class AudioControls
         return this;
     }
 
-    public function pause (val :Boolean) :AudioControls {
-        _localState.paused = val;
+    public function setPaused (paused :Boolean) :AudioControls {
+        _localState.paused = paused;
         _pauseCountdown = 0;
         _unpauseCountdown = 0;
         return this;
     }
 
+    public function pause () :AudioControls {
+        return setPaused(true);
+    }
+
+    public function unpause () :AudioControls {
+        return setPaused(false);
+    }
+
     public function pauseAfter (time :Number) :AudioControls {
         if (time <= 0) {
-            pause(true);
+            setPaused(true);
         } else {
             _pauseCountdown = time;
         }
-
         return this;
     }
 
     public function unpauseAfter (time :Number) :AudioControls {
         if (time <= 0) {
-            pause(false);
+            setPaused(false);
         } else {
             _unpauseCountdown = time;
         }
-
         return this;
     }
 
-    public function mute (val :Boolean) :AudioControls {
-        _localState.muted = val;
+    public function setMuted (muted :Boolean) :AudioControls {
+        _localState.muted = muted;
         _muteCountdown = 0;
         _unmuteCountdown = 0;
         return this;
     }
 
+    public function mute () :AudioControls {
+        return setMuted(true);
+    }
+
+    public function unmute () :AudioControls {
+        return setMuted(false);
+    }
+
     public function muteAfter (time :Number) :AudioControls {
         if (time <= 0) {
-            mute(true);
+            setMuted(true);
         } else {
             _muteCountdown = time;
         }
-
         return this;
     }
 
     public function unmuteAfter (time :Number) :AudioControls {
         if (time <= 0) {
-            mute(false);
+            setMuted(false);
         } else {
             _unmuteCountdown = time;
         }
-
         return this;
     }
 
-    public function stop (val :Boolean) :AudioControls {
-        _localState.stopped = val;
+    public function setStopped (stopped :Boolean) :AudioControls {
+        _localState.stopped = stopped;
         _stopCountdown = 0;
         _playCountdown = 0;
         return this;
+
+    }
+
+    public function stop () :AudioControls {
+        return setStopped(true);
+    }
+
+    public function play () :AudioControls {
+        return setStopped(false);
     }
 
     public function stopAfter (time :Number) :AudioControls {
         if (time <= 0) {
-            stop(true);
+            setStopped(true);
         } else {
             _stopCountdown = time;
         }
-
         return this;
     }
 
     public function playAfter (time :Number) :AudioControls {
         if (time <= 0) {
-            stop(false);
+            setStopped(false);
         } else {
             _playCountdown = time;
         }
-
         return this;
     }
 
-    public function update (dt :Number, parentState :AudioState) :void {
+    internal function update (dt :Number, parentState :AudioState) :void {
         if (_targetVolumeTotalTime > 0) {
             _targetVolumeElapsedTime =
                 Math.min(_targetVolumeElapsedTime + dt, _targetVolumeTotalTime);
@@ -236,7 +281,7 @@ public class AudioControls
         }
     }
 
-    public function updateStateNow () :AudioState {
+    internal function updateStateNow () :AudioState {
         if (null != _parentControls) {
             _globalState =
                 AudioState.combine(_localState, _parentControls.updateStateNow(), _globalState);
@@ -246,11 +291,11 @@ public class AudioControls
         }
     }
 
-    public function get state () :AudioState  {
+    internal function get state () :AudioState  {
         return (null != _parentControls ? _globalState : _localState);
     }
 
-    public function get needsCleanup () :Boolean {
+    internal function get needsCleanup () :Boolean {
         return (_refCount <= 0 && _children.length == 0);
     }
 
