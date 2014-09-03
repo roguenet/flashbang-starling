@@ -52,33 +52,31 @@ public class FlumpLibraryLoader extends ResourceLoader
         }
         _mipmaps = getLoadParam(MIPMAPS, false) as Boolean;
 
-        _exec = new Executor();
-        _exec.succeeded.connect(function (f :Future) :void {
-            libraryLoaded(f.result);
-        });
-        _exec.failed.connect(function (f :Future) :void {
-            fail(f.result);
-        });
+        var loader :LibraryLoader = createLibraryLoader();
+        loader.setExecutor(_exec = new Executor());
 
+        var f :Future;
         if (data is ByteArray) {
-            createLibraryLoader().loadBytes(ByteArray(data));
+            f = loader.loadBytes(ByteArray(data));
 
         } else if (data is String) {
             var progress :Function = getLoadParam(ON_PROGRESS);
-            var loader :LibraryLoader = createLibraryLoader();
             if (progress != null) {
                 loader.urlLoadProgressed.connect(progress);
             }
-            loader.loadURL(data as String);
+            f = loader.loadURL(data as String);
 
         } else {
             throw new Error("Unrecognized Flump Library data source: '" +
                 ClassUtil.tinyClassName(data) + "'");
         }
+
+        f.succeeded.connect(libraryLoaded);
+        f.failed.connect(fail);
     }
 
     protected function createLibraryLoader () :LibraryLoader {
-        return new LibraryLoader().setExecutor(_exec).setGenerateMipMaps(_mipmaps);
+        return new LibraryLoader().setGenerateMipMaps(_mipmaps);
     }
 
     protected function libraryLoaded (library :Library) :void {
